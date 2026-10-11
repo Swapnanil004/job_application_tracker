@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job tracker</title>
+<style>
+  :root {
+    --bg: #f2f4f6;
+    --surface: #ffffff;
+    --ink: #15233b;
+    --muted: #5b6678;
+    --line: #d9dee5;
+    --focus: #1d6fd6;
+    --danger: #a8445a;
+    --applied: #3b6ea8;
+    --interview: #b97a12;
+    --offer: #2a7f55;
+    --rejected: #a8445a;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1622;
+      --surface: #17202f;
+      --ink: #e8edf5;
+      --muted: #9aa6ba;
+      --line: #2a3548;
+      --focus: #6da0dc;
+      --danger: #e08499;
+      --applied: #6da0dc;
+      --interview: #e0a83d;
+      --offer: #4fb882;
+      --rejected: #d9738a;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; }
+  button, input, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* Buttons */
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn.soft { color: var(--ink); background: color-mix(in srgb, var(--interview) 12%, var(--surface)); border-color: transparent; }
+  .btn.ghost { background: transparent; }
+  .btn.danger { background: transparent; color: var(--danger); }
+  .btn.small { padding: 4px 10px; font-size: 13px; }
+  .btn.wide { width: 100%; padding: 10px 14px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+
+  /* Forms */
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 14px; }
+  input, textarea {
+    display: block; width: 100%; margin-top: 4px;
+    padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); color: var(--ink);
+  }
+  textarea { resize: vertical; }
+  .err { color: var(--danger); min-height: 1.4em; margin: 0 0 10px; font-size: 14px; }
+
+  /* Sign in */
+  .auth { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .auth-box { width: 100%; max-width: 380px; }
+  .auth-box h1 { font-size: 34px; line-height: 1.15; }
+  .lead { color: var(--muted); margin: 8px 0 22px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 18px; }
+  .seg button { flex: 1; padding: 9px; border: 0; background: transparent; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--ink); color: var(--bg); }
+
+  /* App shell */
+  .top {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+  .brand { font-family: var(--serif); font-size: 21px; font-weight: 600; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; color: var(--muted); }
+  .tabs button.on { background: var(--bg); color: var(--ink); font-weight: 600; }
+  .who { margin-left: auto; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  /* Pipeline */
+  .pipeline {
+    display: flex; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; margin-bottom: 18px;
+  }
+  .stage {
+    flex: var(--w, 1) 1 0; min-width: 96px; text-align: left; cursor: pointer;
+    border: 0; border-top: 5px solid var(--c); border-right: 1px solid var(--line);
+    background: var(--surface); padding: 12px 14px;
+  }
+  .stage:last-child { border-right: 0; }
+  .stage.on { background: color-mix(in srgb, var(--c) 11%, var(--surface)); }
+  .stage .n { display: block; font-family: var(--serif); font-size: 30px; line-height: 1.1; }
+  .stage .l { font-size: 13px; color: var(--muted); }
+  .stage.all { --c: var(--ink); flex: 0 0 110px; }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+  .toolbar input { margin: 0; flex: 1; }
+
+  /* Rows */
+  .row {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px 16px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 5px solid var(--c); border-radius: 6px;
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .s-APPLIED { --c: var(--applied); }
+  .s-INTERVIEW { --c: var(--interview); }
+  .s-OFFER { --c: var(--offer); }
+  .s-REJECTED { --c: var(--rejected); }
+  .row h3 { font-size: 18px; }
+  .row .pos { margin: 0; }
+  .row .notes { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
+  .meta { text-align: right; font-size: 13px; color: var(--muted); }
+  .pill {
+    display: inline-block; padding: 1px 10px; border-radius: 999px; margin-bottom: 4px;
+    color: var(--c); border: 1px solid var(--c); font-weight: 600; font-size: 13px;
+  }
+  .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+  .actions .push { margin-left: auto; display: flex; gap: 6px; }
+
+  .empty { text-align: center; padding: 40px 16px; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; }
+  .empty p { margin: 0 0 12px; }
+  .pager { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 16px; color: var(--muted); font-size: 14px; }
+
+  /* Admin tables */
+  .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin: 10px 0 28px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  #view-admin h2 { font-size: 20px; margin-top: 4px; }
+
+  /* Dialog */
+  dialog { border: 1px solid var(--line); border-radius: 10px; padding: 22px; width: min(440px, calc(100% - 32px)); background: var(--surface); color: var(--ink); }
+  dialog::backdrop { background: rgba(10, 16, 28, .5); }
+  dialog h2 { font-size: 22px; margin-bottom: 16px; }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 6px;
+    font-size: 14px; max-width: calc(100% - 32px);
+  }
+
+  @media (max-width: 640px) {
+    .pipeline { flex-wrap: wrap; }
+    .stage, .stage.all { flex: 1 1 50%; border-right: 0; border-bottom: 1px solid var(--line); }
+    .row { grid-template-columns: 1fr; }
+    .meta { text-align: left; }
+    .actions .push { margin-left: 0; }
+    .who { margin-left: 0; width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sign in / create account -->
+<main id="auth" class="auth" hidden>
+  <div class="auth-box">
+    <h1>Job tracker</h1>
+    <p class="lead">Track every application from applied to offer.</p>
+    <div class="seg">
+      <button type="button" id="tab-login" class="on">Log in</button>
+      <button type="button" id="tab-register">Create account</button>
+    </div>
+    <form id="auth-form" novalidate>
+      <label id="name-wrap" hidden>Name
+        <input id="a-name" autocomplete="name">
+      </label>
+      <label>Email
+        <input id="a-email" type="email" autocomplete="email">
+      </label>
+      <label>Password
+        <input id="a-pass" type="password" autocomplete="current-password">
+      </label>
+      <p id="auth-err" class="err" role="alert"></p>
+      <button class="btn primary wide" id="auth-submit">Log in</button>
+    </form>
+  </div>
+</main>
+
+<!-- App -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand">Job tracker</div>
+    <nav id="tabs" class="tabs" hidden>
+      <button type="button" id="nav-apps" class="on">My applications</button>
+      <button type="button" id="nav-admin">Admin</button>
+    </nav>
+    <div class="who">
+      <span id="who"></span>
+      <button type="button" class="btn small ghost" id="logout">Log out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="view-apps">
+      <div id="pipeline" class="pipeline"></div>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search by company" aria-label="Search by company">
+        <button type="button" id="add" class="btn primary">Add application</button>
+      </div>
+      <div id="list"></div>
+      <div id="pager" class="pager"></div>
+    </section>
+
+    <section id="view-admin" hidden>
+      <h2>Users</h2>
+      <div id="admin-users" class="tablewrap"></div>
+      <h2>All applications</h2>
+      <div id="admin-apps" class="tablewrap"></div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlg">
+  <form id="app-form" novalidate>
+    <h2 id="dlg-title">Add application</h2>
+    <label>Company
+      <input id="f-company" maxlength="150">
+    </label>
+    <label>Position
+      <input id="f-position" maxlength="150">
+    </label>
+    <label>Date applied
+      <input id="f-date" type="date">
+    </label>
+    <label>Notes
+      <textarea id="f-notes" rows="3" maxlength="1000"></textarea>
+    </label>
+    <p id="form-err" class="err" role="alert"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn ghost" id="f-cancel">Cancel</button>
+      <button class="btn primary" id="f-save">Save application</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  // When served by Spring Boot (http://localhost:8080) the API is on the same origin.
+  var API = location.protocol === 'file:' ? 'http://localhost:8080' : '';
+
+  var STATUSES = ['APPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'];
+  var LABEL = { APPLIED: 'Applied', INTERVIEW: 'Interview', OFFER: 'Offer', REJECTED: 'Rejected' };
+  var NEXT = { APPLIED: ['INTERVIEW', 'REJECTED'], INTERVIEW: ['OFFER', 'REJECTED'], OFFER: [], REJECTED: [] };
+  var ACTION = { INTERVIEW: 'Move to interview', OFFER: 'Mark as offer', REJECTED: 'Mark as rejected' };
+
+  var state = {
+    token: null, email: null, role: null,
+    status: '', company: '', page: 0, size: 8,
+    editingId: null, counts: { APPLIED: 0, INTERVIEW: 0, OFFER: 0, REJECTED: 0 }
+  };
+  var authMode = 'login';
+
+  function $(id) { return document.getElementById(id); }
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  // Small DOM helper: builds elements with text nodes only (no innerHTML).
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      var v = props[k];
+      if (k === 'class') el.className = v;
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+      else if (v === true) el.setAttribute(k, '');
+      else if (v !== false && v != null) el.setAttribute(k, v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      [].concat(arguments[i]).forEach(function (kid) {
+        if (kid == null || kid === false) return;
+        el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+      });
+    }
+    return el;
+  }
+
+  var toastTimer;
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 3200);
+  }
+
+  function describe(err) {
+    if (err.fieldErrors) {
+      var parts = Object.keys(err.fieldErrors).map(function (k) { return err.fieldErrors[k]; });
+      if (parts.length) return parts.join('. ');
+    }
+    return err.message || 'Something went wrong.';
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    var headers = {};
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    if (opts.auth !== false && state.token) headers['Authorization'] = 'Bearer ' + state.token;
+    return fetch(API + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    }).catch(function () {
+      throw new Error('Cannot reach the server. Check that the app is running on port 8080.');
+    }).then(function (res) {
+      if (res.status === 401 && opts.auth !== false) {
+        logout();
+        throw new Error('Your session expired. Log in again.');
+      }
+      if (res.status === 204) return null;
+      return res.json().catch(function () { return null; }).then(function (data) {
+        if (!res.ok) {
+          var err = new Error((data && data.message) || ('Request failed (' + res.status + ')'));
+          err.fieldErrors = data && data.fieldErrors;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  /* ---------- Auth ---------- */
+  function setAuthMode(mode) {
+    authMode = mode;
+    var reg = mode === 'register';
+    $('tab-login').classList.toggle('on', !reg);
+    $('tab-register').classList.toggle('on', reg);
+    $('name-wrap').hidden = !reg;
+    $('auth-submit').textContent = reg ? 'Create account' : 'Log in';
+    $('a-pass').setAttribute('autocomplete', reg ? 'new-password' : 'current-password');
+    $('auth-err').textContent = reg ? 'Use at least 8 characters for the password.' : '';
+    $('auth-err').style.color = reg ? 'var(--muted)' : '';
+  }
+  $('tab-login').addEventListener('click', function () { setAuthMode('login'); });
+  $('tab-register').addEventListener('click', function () { setAuthMode('register'); });
+
+  $('auth-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = $('a-email').value.trim();
+    var password = $('a-pass').value;
+    var body = authMode === 'login'
+      ? { email: email, password: password }
+      : { name: $('a-name').value.trim(), email: email, password: password };
+    $('auth-err').style.color = '';
+    $('auth-err').textContent = '';
+    $('auth-submit').disabled = true;
+    api('/api/auth/' + authMode, { method: 'POST', body: body, auth: false })
+      .then(startSession)
+      .catch(function (err) { $('auth-err').textContent = describe(err); })
+      .then(function () { $('auth-submit').disabled = false; });
+  });
+
+  function startSession(resp) {
+    state.token = resp.token;
+    state.email = resp.email;
+    state.role = resp.role;
+    store.set('jt_token', resp.token);
+    store.set('jt_email', resp.email);
+    store.set('jt_role', resp.role);
+    $('a-pass').value = '';
+    showApp();
+  }
+
+  function logout() {
+    state.token = null; state.email = null; state.role = null;
+    store.del('jt_token'); store.del('jt_email'); store.del('jt_role');
+    $('app').hidden = true;
+    $('auth').hidden = false;
+    setAuthMode('login');
+  }
+  $('logout').addEventListener('click', logout);
+
+  function showApp() {
+    $('auth').hidden = true;
+    $('app').hidden = false;
+    $('who').textContent = state.email;
+    $('tabs').hidden = state.role !== 'ADMIN';
+    state.status = ''; state.company = ''; state.page = 0;
+    $('search').value = '';
+    switchTab('apps');
+  }
+
+  /* ---------- Tabs ---------- */
+  function switchTab(tab) {
+    $('nav-apps').classList.toggle('on', tab === 'apps');
+    $('nav-admin').classList.toggle('on', tab === 'admin');
+    $('view-apps').hidden = tab !== 'apps';
+    $('view-admin').hidden = tab !== 'admin';
+    if (tab === 'apps') refresh(); else loadAdmin();
+  }
+  $('nav-apps').addEventListener('click', function () { switchTab('apps'); });
+  $('nav-admin').addEventListener('click', function () { switchTab('admin'); });
+
+  /* ---------- Applications ---------- */
+  function refresh() {
+    return Promise.all([loadCounts(), loadList()]).catch(function (err) { toast(describe(err)); });
+  }
+
+  function loadCounts() {
+    return Promise.all(STATUSES.map(function (s) {
+      return api('/api/applications?size=1&status=' + s);
+    })).then(function (results) {
+      STATUSES.forEach(function (s, i) { state.counts[s] = results[i].totalElements; });
+      renderPipeline();
+    });
+  }
+
+  function loadList() {
+    var q = new URLSearchParams({ page: state.page, size: state.size });
+    if (state.status) q.set('status', state.status);
+    if (state.company) q.set('company', state.company);
+    return api('/api/applications?' + q.toString()).then(function (data) {
+      if (data.content.length === 0 && state.page > 0) {
+        state.page -= 1;
+        return loadList();
+      }
+      renderList(data);
+    });
+  }
+
+  function renderPipeline() {
+    var total = STATUSES.reduce(function (sum, s) { return sum + state.counts[s]; }, 0);
+    var box = $('pipeline');
+    box.replaceChildren();
+    box.append(h('button', {
+      type: 'button', class: 'stage all' + (state.status === '' ? ' on' : ''),
+      onclick: function () { setStatusFilter(''); }
+    }, h('span', { class: 'n' }, total), h('span', { class: 'l' }, 'All applications')));
+    STATUSES.forEach(function (s) {
+      var weight = total ? Math.max(state.counts[s], 0.6) : 1;
+      var btn = h('button', {
+        type: 'button', class: 'stage s-' + s + (state.status === s ? ' on' : ''),
+        'aria-pressed': state.status === s ? 'true' : 'false',
+        onclick: function () { setStatusFilter(state.status === s ? '' : s); }
+      }, h('span', { class: 'n' }, state.counts[s]), h('span', { class: 'l' }, LABEL[s]));
+      btn.style.setProperty('--w', weight);
+      box.append(btn);
+    });
+  }
+
+  function setStatusFilter(s) {
+    state.status = s;
+    state.page = 0;
+    renderPipeline();
+    loadList().catch(function (err) { toast(describe(err)); });
+  }
+
+  function fmtDate(s) {
+    var d = new Date(s + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function renderList(data) {
+    var list = $('list');
+    list.replaceChildren();
+    var filtered = state.status || state.company;
+    if (data.totalElements === 0) {
+      if (filtered) {
+        list.append(h('div', { class: 'empty' },
+          h('p', {}, 'No applications match this filter.'),
+          h('button', { type: 'button', class: 'btn', onclick: clearFilters }, 'Clear filters')));
+      } else {
+        list.append(h('div', { class: 'empty' },
+          h('p', {}, 'No applications yet. Add the first job you applied to.'),
+          h('button', { type: 'button', class: 'btn primary', onclick: function () { openForm(null); } }, 'Add application')));
+      }
+    } else {
+      data.content.forEach(function (a) { list.append(row(a)); });
+    }
+    renderPager(data);
+  }
+
+  function clearFilters() {
+    state.status = ''; state.company = ''; state.page = 0;
+    $('search').value = '';
+    renderPipeline();
+    loadList().catch(function (err) { toast(describe(err)); });
+  }
+
+  function row(a) {
+    var moves = NEXT[a.status].map(function (n) {
+      return h('button', {
+        type: 'button',
+        class: 'btn small ' + (n === 'REJECTED' ? 'danger' : 'soft'),
+        onclick: function () { changeStatus(a, n); }
+      }, ACTION[n]);
+    });
+    return h('article', { class: 'row s-' + a.status },
+      h('div', {},
+        h('h3', {}, a.company),
+        h('p', { class: 'pos' }, a.position),
+        a.notes ? h('p', { class: 'notes' }, a.notes) : null),
+      h('div', { class: 'meta' },
+        h('span', { class: 'pill' }, LABEL[a.status]),
+        h('div', {}, 'Applied ' + fmtDate(a.appliedDate))),
+      h('div', { class: 'actions' },
+        moves,
+        h('div', { class: 'push' },
+          h('button', { type: 'button', class: 'btn small ghost', onclick: function () { openForm(a); } }, 'Edit'),
+          h('button', { type: 'button', class: 'btn small danger', onclick: function () { remove(a); } }, 'Delete'))));
+  }
+
+  function renderPager(data) {
+    var p = $('pager');
+    p.replaceChildren();
+    if (data.totalPages <= 1) return;
+    p.append(
+      h('button', { type: 'button', class: 'btn small', disabled: state.page === 0, onclick: function () { go(-1); } }, 'Previous'),
+      h('span', {}, 'Page ' + (data.page + 1) + ' of ' + data.totalPages),
+      h('button', { type: 'button', class: 'btn small', disabled: data.page + 1 >= data.totalPages, onclick: function () { go(1); } }, 'Next'));
+  }
+
+  function go(delta) {
+    state.page += delta;
+    loadList().catch(function (err) { toast(describe(err)); });
+  }
+
+  function changeStatus(a, next) {
+    api('/api/applications/' + a.id + '/status', { method: 'PATCH', body: { status: next } })
+      .then(function () { toast(a.company + ' moved to ' + LABEL[next]); return refresh(); })
+      .catch(function (err) { toast(describe(err)); });
+  }
+
+  function remove(a) {
+    if (!confirm('Delete the application to ' + a.company + '? This cannot be undone.')) return;
+    api('/api/applications/' + a.id, { method: 'DELETE' })
+      .then(function () { toast('Application deleted'); return refresh(); })
+      .catch(function (err) { toast(describe(err)); });
+  }
+
+  var searchTimer;
+  $('search').addEventListener('input', function (e) {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () {
+      state.company = e.target.value.trim();
+      state.page = 0;
+      loadList().catch(function (err) { toast(describe(err)); });
+    }, 300);
+  });
+
+  /* ---------- Add / edit dialog ---------- */
+  function today() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function openForm(a) {
+    state.editingId = a ? a.id : null;
+    $('dlg-title').textContent = a ? 'Edit application' : 'Add application';
+    $('f-company').value = a ? a.company : '';
+    $('f-position').value = a ? a.position : '';
+    $('f-date').value = a ? a.appliedDate : today();
+    $('f-notes').value = a && a.notes ? a.notes : '';
+    $('form-err').textContent = '';
+    $('dlg').showModal();
+    $('f-company').focus();
+  }
+  $('add').addEventListener('click', function () { openForm(null); });
+  $('f-cancel').addEventListener('click', function () { $('dlg').close(); });
+
+  $('app-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var body = {
+      company: $('f-company').value.trim(),
+      position: $('f-position').value.trim(),
+      appliedDate: $('f-date').value,
+      notes: $('f-notes').value.trim() || null
+    };
+    if (!body.company || !body.position || !body.appliedDate) {
+      $('form-err').textContent = 'Enter the company, the position and the date you applied.';
+      return;
+    }
+    var editing = state.editingId;
+    $('f-save').disabled = true;
+    api(editing ? '/api/applications/' + editing : '/api/applications',
+        { method: editing ? 'PUT' : 'POST', body: body })
+      .then(function () {
+        $('dlg').close();
+        toast(editing ? 'Changes saved' : 'Application added');
+        return refresh();
+      })
+      .catch(function (err) { $('form-err').textContent = describe(err); })
+      .then(function () { $('f-save').disabled = false; });
+  });
+
+  /* ---------- Admin ---------- */
+  function table(headers, rows) {
+    return h('table', {},
+      h('thead', {}, h('tr', {}, headers.map(function (t) { return h('th', {}, t); }))),
+      h('tbody', {}, rows.map(function (r) {
+        return h('tr', {}, r.map(function (c) { return h('td', {}, c); }));
+      })));
+  }
+
+  function loadAdmin() {
+    Promise.all([api('/api/admin/users'), api('/api/admin/applications?size=50')])
+      .then(function (res) {
+        var users = res[0], apps = res[1];
+        $('admin-users').replaceChildren(
+          table(['ID', 'Name', 'Email', 'Role'],
+            users.map(function (u) { return [u.id, u.name, u.email, u.role]; })));
+        $('admin-apps').replaceChildren(
+          table(['Company', 'Position', 'Status', 'Applied', 'Owner'],
+            apps.content.map(function (a) {
+              return [a.company, a.position, LABEL[a.status], a.appliedDate, a.ownerEmail];
+            })));
+      })
+      .catch(function (err) { toast(describe(err)); });
+  }
+
+  /* ---------- Start ---------- */
+  var savedToken = store.get('jt_token');
+  if (savedToken) {
+    state.token = savedToken;
+    state.email = store.get('jt_email') || '';
+    state.role = store.get('jt_role') || 'USER';
+    showApp();
+  } else {
+    $('auth').hidden = false;
+    setAuthMode('login');
+  }
+})();
+</script>
+</body>
+</html>
